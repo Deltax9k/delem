@@ -1,0 +1,234 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="jquery.js"></script>
+</head>
+<body>
+<div class="container">
+
+</div>
+<script type="text/javascript">
+  $(document).ready(function () {
+    function Evaluate(field, target , self) {
+      if (!field) {
+        return
+      }
+      var type = typeof(field)
+      if (type === 'string') {
+        return field
+      }
+      if (type === 'function') {
+        if (target === '_node') {
+          return field()
+        }
+        if (target === '_html') {
+          field.prototype = function append(some) {
+            self.append(De(some))
+          }
+          return field.call(self, self)
+        }
+        if (target === '_done') {
+          field()
+          return
+        }
+        if (target === 'onclick') {
+          return function () {
+            field.call(field, self)
+          }
+        }
+        return field.call(field, self)
+      }
+      if (type === 'object') {
+        if ($.isArray(field)) {
+          var html = []
+          $.each(field, function () {
+            html.push(Delem(this))
+          })
+          return html
+        }
+        return Delem(field)
+      }
+    }
+    function Delem(dElem) {
+      var _node = Evaluate.call(de, dElem._node, '_node')
+      if (typeof(_node) !== 'string') {
+        return
+      }
+      var de = $('<' + _node + '>')
+      //处理非内置属性
+      for (var name in dElem) {
+        // 以 '_' 开头为内置属性
+        if (name.charAt(0) !== '_') {
+          var attr = Evaluate(dElem[name], name, de)
+          if (attr) {
+            if (name === 'onclick') {
+              de[0].onclick = attr
+            } else {
+              de.attr(name, attr)
+            }
+          } else {
+            de.removeAttr(name)
+          }
+        }
+      }
+      //内置属性
+      var htm = Evaluate(dElem._html, '_html', de)
+      if (htm) {
+        if ($.isArray(htm)) {
+          $.each(htm, function () {
+            de.append(this)
+          })
+        } else {
+          de.append(htm)
+        }
+      }
+      Evaluate(dElem._done, de)
+      return de
+    }
+
+    function Dmake(proto) {
+      return function (data) {
+        if (!data || typeof(data) !== 'object' ||
+            $.isArray(data)) {
+          throw 'only single object supported, data:\n' + JSON.stringify(data)
+        }
+        return Delem($.extend({}, proto(data), data))
+      }
+    }
+
+    function De(objectOrFunc) {
+      if (!objectOrFunc) {
+        return
+      }
+      var type = typeof(objectOrFunc)
+      if (type === 'object') {
+        return Delem(objectOrFunc)
+      }
+      if (type === 'function') {
+        return Dmake(objectOrFunc)
+      }
+    }
+
+
+    var delem = De({
+      _node: 'select'
+      ,name: 'countries'
+      ,onclick: function (self) {
+        console.log('clicked')
+      }
+      ,_html: [{
+        _node: 'option'
+        ,id: 'n1'
+        ,_html: '美国'
+      }, {
+        _node: 'option'
+        ,id: 'n2'
+        ,_html: '中国'
+      }, {
+        _node: 'option'
+        ,id: 'n3'
+        ,_html: '日本'
+      }]
+    })
+
+    var Header = De(function (data) {
+      var field = data.field
+      return {
+        _node: 'tr'
+        ,_html: function (self) {
+          $.each(data.tds, function () {
+            self.append(De({
+              _node: 'td',
+              _html: this[field]
+            }))
+          })
+        }
+      }
+    })
+
+    var DataTr = De(function (data) {
+      var model = data.model
+      var rawData = data.data
+      return {
+        _node: 'tr',
+        _html: function (self) {
+          $.each(model, function () {
+            self.append(De({
+              _node: 'td',
+              _html: rawData[this]
+            }))
+          })
+        }
+      }
+    })
+
+    var extract = function (array, field) {
+      var result = []
+      $.each(array, function () {
+        result.push(this[field])
+      })
+      return result
+    }
+
+    var Table = De(function (data) {
+      var rawModel = data.model
+      var rawData = data.data
+      return {
+        _node: 'table'
+        ,_html: function (self) {
+          self.append(Header({tds: rawModel, field: 'title'}))
+          var model = extract(rawModel, 'field')
+          $.each(rawData.dataList, function () {
+            self.append(DataTr({model: model, data: this}))
+          })
+        }
+      }
+    })
+
+    var data = {
+      dataList: [{
+        brand: '奔驰',
+        model: 'C200L',
+        price: '35W'
+      }, {
+        brand: '吉利',
+        model: '博瑞',
+        price: '18W'
+      }, {
+        brand: '马自达',
+        model: 'cx-4',
+        price: '18W'
+      }]
+    }
+
+    var model = [{
+      title: '品牌'
+      ,field: 'brand'
+    }, {
+      title: '型号'
+      ,field: 'model'
+    }, {
+      title: '价格'
+      ,field: 'price'
+    }]
+    
+    $('.container').append(delem)
+    .append(Table({model: model, data: data}))
+
+    /*
+    var box = $('div')
+    box.addClass('box')
+    box.click(function () {alert()})
+    $('.container').append(box)
+    */
+  })
+</script>
+<style type="text/css">
+  .box {
+    width: 50px;
+    height: 50px;
+    background-color: gray;
+  }
+</style>
+</body>
+</html>
