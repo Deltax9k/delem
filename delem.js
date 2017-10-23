@@ -1,100 +1,114 @@
-function Evaluate(field, target , self) {
-      if (!field) {
-        return
-      }
-      var type = typeof(field)
-      if (type === 'string') {
-        return field
-      }
-      if (type === 'function') {
-        if (target === '_node') {
-          return field()
+!function () {
+  var delem = {
+    Eval: function (proc, $elem) {
+      var _this = this
+      switch (typeof(proc)) {
+      case 'string': return proc
+      case 'function': return proc.call(_this, $elem)
+      case 'object': 
+        if ($.isArray(proc)) {
+          var array = []
+          $.each(proc, function () {
+            array.push(delem.Delem(this))
+          })
+          return array
+        } else {
+          return delem.Delem(proc)
         }
-        if (target === '_html') {
-          field.prototype = function append(some) {
-            self.append(De(some))
-          }
-          return field.call(self, self)
-        }
-        if (target === '_done') {
-          field()
+      }
+    }
+    ,defaults: {
+      _delem: function (demo) {
+        var ext = $.extend({}, delem.defaults, demo._EVAL)
+        var $elem = delem.Eval.call(demo, ext._node)
+        if (!$elem) {
           return
         }
-        if (target === 'onclick') {
-          return function () {
-            field.call(field, self)
-          }
+        delete ext._node
+        for (var name in demo) {
+          delem.Eval.call(demo, ext[name] || demo[name], $elem)
         }
-        return field.call(field, self)
+        return $elem
       }
-      if (type === 'object') {
-        if ($.isArray(field)) {
-          var html = []
-          $.each(field, function () {
-            html.push(Delem(this))
-          })
-          return html
+      ,_node: function () {
+        var _node = delem.Eval.call(this, this._node)
+        if (typeof(_node) !== 'string' 
+            || _node === '') {
+          return
         }
-        return Delem(field)
+        return $('<' + _node + '>')
       }
-    }
-    function Delem(dElem) {
-      var _node = Evaluate.call(de, dElem._node, '_node')
-      if (typeof(_node) !== 'string') {
-        return
-      }
-      var de = $('<' + _node + '>')
-      //处理非内置属性
-      for (var name in dElem) {
-        // 以 '_' 开头为内置属性
-        if (name.charAt(0) !== '_') {
-          var attr = Evaluate(dElem[name], name, de)
-          if (attr) {
-            if (name === 'onclick') {
-              de[0].onclick = attr
-            } else {
-              de.attr(name, attr)
-            }
+      ,_html: function ($elem) {
+        var res = delem.Eval.call(this, this._html, $elem)
+        res && !function (){
+          if ($.isArray(res)) {
+            $.each(res, function () {
+              $elem.append(this)
+            })
           } else {
-            de.removeAttr(name)
+            $elem.append(res)
+          }
+        }()
+      }
+      ,_children: function ($elem) {
+        var _children = this._children
+        _children && $.each(_children._data, function () {
+          $elem.append(De($.extend(_children, this)))
+        })
+      }
+      ,_data: function () {
+      }
+    }
+    ,bindEvent: function (eventName) {
+      delem.defaults[eventName] = function(self) {
+        var proc = this[eventName]
+        if (proc) {
+          self[0][eventName] = function (self) {
+            proc.call(this, self)
           }
         }
       }
-      //内置属性
-      var htm = Evaluate(dElem._html, '_html', de)
-      if (htm) {
-        if ($.isArray(htm)) {
-          $.each(htm, function () {
-            de.append(this)
-          })
-        } else {
-          de.append(htm)
-        }
-      }
-      Evaluate(dElem._done, de)
-      return de
     }
-
-    function Dmake(proto) {
+    ,addAttr: function (name) {
+      delem.defaults[name] = function(self) {
+        var attribute = delem.Eval.call(this, this[name], self)
+        attribute && (self[0][name] = attribute)
+      }
+    }
+    ,Delem: function (demo) {
+      return (demo && demo._EVAL && emo._EVAL._delem) ?
+        emo._EVAL._delem(demo) : delem.defaults._delem(demo)
+    }
+    ,Dmake: function (proto) {
       return function (data) {
         if (!data || typeof(data) !== 'object' ||
             $.isArray(data)) {
           throw 'only single object supported, data:\n' + JSON.stringify(data)
         }
-        return Delem($.extend({}, proto(data), data))
+        return delem.Delem($.extend({}, proto(data), data))
       }
     }
-
-    function De(objectOrFunc) {
-      if (!objectOrFunc) {
-        return
-      }
-      var type = typeof(objectOrFunc)
-      if (type === 'object') {
-        return Delem(objectOrFunc)
-      }
-      if (type === 'function') {
-        return Dmake(objectOrFunc)
+    ,De: function (objectOrFunc) {
+      switch (typeof(objectOrFunc)) {
+        case 'object': return delem.Delem(objectOrFunc)
+        case 'function': return delem.Dmake(objectOrFunc)
       }
     }
+  }
 
+  //初始化绑定事件处理
+  $.each([
+    'onclick', 'onblur', 'onchange'
+  ], function () {
+    delem.bindEvent(this)
+  })
+
+  //初始化属性处理
+  $.each([
+    'id', 'name', 'value', 'class', 'style'
+  ], function () {
+    delem.addAttr(this)
+  })
+
+  window.De = delem.De
+}()
