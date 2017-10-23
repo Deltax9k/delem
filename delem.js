@@ -76,8 +76,8 @@
       }
     }
     ,Delem: function (demo) {
-      return (demo && demo._EVAL && emo._EVAL._delem) ?
-        emo._EVAL._delem(demo) : delem.defaults._delem(demo)
+      return (demo && demo._EVAL && demo._EVAL._delem) ?
+        demo._EVAL._delem(demo) : delem.defaults._delem(demo)
     }
     ,Dmake: function (proto) {
       return function (data) {
